@@ -15,7 +15,12 @@ export default function Home() {
       } = await supabase.auth.getSession();
 
       if (session?.user) {
-        router.replace("/dashboard");
+        const role = session.user.user_metadata?.role || "manager";
+        if (role === "cashier") {
+          router.replace("/search");
+        } else {
+          router.replace("/dashboard");
+        }
       } else {
         router.replace("/login");
       }

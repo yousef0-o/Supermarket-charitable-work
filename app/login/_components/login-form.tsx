@@ -18,7 +18,7 @@ export function LoginForm() {
     setIsLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -29,7 +29,12 @@ export function LoginForm() {
       return;
     }
 
-    router.replace("/search");
+    const role = data?.user?.user_metadata?.role || "manager";
+    if (role === "cashier") {
+      router.replace("/search");
+    } else {
+      router.replace("/dashboard");
+    }
     router.refresh();
   };
 

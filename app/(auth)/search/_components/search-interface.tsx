@@ -54,9 +54,9 @@ export function SearchInterface() {
   const [isDisbursing, setIsDisbursing] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const { isOnline, refreshPendingCount } = useNetworkStatus();
-
   const [activeCycleId, setActiveCycleId] = useState<string | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
 
   // Show Toast helper
   const showToast = (text: string, type: "success" | "error" = "success") => {
@@ -86,7 +86,19 @@ export function SearchInterface() {
         console.error("Error fetching active cycle on mount:", err);
       }
     };
+    const fetchUserRole = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setRole(user.user_metadata?.role || "manager");
+        }
+      } catch (err) {
+        console.error("Error fetching user role on mount:", err);
+      }
+    };
     fetchActiveCycle();
+    fetchUserRole();
   }, []);
 
   // Debouncing Query
@@ -437,14 +449,24 @@ export function SearchInterface() {
                   >
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/beneficiary/${beneficiary.id}`}
-                          className={`text-base font-extrabold outline-none hover:underline focus-visible:ring-1 focus-visible:ring-emerald-700 ${
-                            beneficiary.hasReceived ? "text-rose-900" : "text-emerald-900"
-                          }`}
-                        >
-                          {beneficiary.full_name}
-                        </Link>
+                        {role === "cashier" ? (
+                          <span
+                            className={`text-base font-extrabold ${
+                              beneficiary.hasReceived ? "text-rose-900" : "text-emerald-900"
+                            }`}
+                          >
+                            {beneficiary.full_name}
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/beneficiary/${beneficiary.id}`}
+                            className={`text-base font-extrabold outline-none hover:underline focus-visible:ring-1 focus-visible:ring-emerald-700 ${
+                              beneficiary.hasReceived ? "text-rose-900" : "text-emerald-900"
+                            }`}
+                          >
+                            {beneficiary.full_name}
+                          </Link>
+                        )}
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold leading-none ${
                             beneficiary.hasReceived
@@ -494,14 +516,16 @@ export function SearchInterface() {
                     </div>
 
                     <div className="flex items-center gap-2 justify-end shrink-0 flex-wrap sm:flex-nowrap">
-                      <Link
-                        href={`/beneficiary/${beneficiary.id}`}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm outline-none transition-colors hover:bg-slate-50 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
-                        title="عرض ملف المستفيد وإحصائياته"
-                      >
-                        <User className="size-3.5" />
-                        <span>ملف المستفيد</span>
-                      </Link>
+                      {role !== "cashier" && (
+                        <Link
+                          href={`/beneficiary/${beneficiary.id}`}
+                          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 shadow-sm outline-none transition-colors hover:bg-slate-50 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
+                          title="عرض ملف المستفيد وإحصائياته"
+                        >
+                          <User className="size-3.5" />
+                          <span>ملف المستفيد</span>
+                        </Link>
+                      )}
 
                       {beneficiary.hasReceived ? (
                         <button

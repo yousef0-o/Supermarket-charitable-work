@@ -10,10 +10,12 @@ import {
   Search,
   UsersRound,
   RefreshCw,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useNetworkStatus } from "@/components/providers/network-provider";
+import { useEffect } from "react";
 
 type NavItem = {
   href: string;
@@ -37,6 +39,11 @@ const navItems: NavItem[] = [
     label: "إدارة المستفيدين",
     icon: UsersRound,
   },
+  {
+    href: "/manager",
+    label: "صفحة المدير",
+    icon: UserPlus,
+  },
 ];
 
 export function AuthHeader() {
@@ -45,6 +52,22 @@ export function AuthHeader() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const { isOnline, pendingCount, syncOfflineData } = useNetworkStatus();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setRole(user.user_metadata?.role || "manager");
+        }
+      } catch (err) {
+        console.error("Error fetching user in header:", err);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -67,11 +90,21 @@ export function AuthHeader() {
     }
   };
 
+  const visibleNavItems = navItems.filter((item) => {
+    if (role === null) {
+      return item.href === "/search";
+    }
+    if (role === "cashier") {
+      return item.href === "/search";
+    }
+    return true;
+  });
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex min-h-16 w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link
-          href="/dashboard"
+          href={role === "cashier" ? "/search" : "/dashboard"}
           className="inline-flex items-center gap-3 rounded-md text-slate-800 outline-none transition-colors hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           <span className="flex size-10 items-center justify-center rounded-md bg-emerald-700 text-white shadow-sm">
@@ -89,7 +122,7 @@ export function AuthHeader() {
           aria-label="التنقل الرئيسي"
           className="order-3 flex w-full items-center justify-center gap-1.5 md:order-none md:w-auto"
         >
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
