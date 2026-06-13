@@ -12,6 +12,15 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     console.error("Application error:", error);
+    
+    // Automatically recover from ChunkLoadErrors by reloading the page
+    if (
+      error.name === "ChunkLoadError" ||
+      error.message?.includes("Failed to load chunk") ||
+      error.message?.includes("ChunkLoadError")
+    ) {
+      window.location.reload();
+    }
   }, [error]);
 
   return (
