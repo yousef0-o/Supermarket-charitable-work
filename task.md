@@ -1,0 +1,9 @@
+- [x] Refactor `app/api/notify/route.ts` to strictly require `ADMIN_NOTIFICATION_SECRET` env and return 500 when missing.
+- [x] Update notify route unit tests in `app/api/notify/__tests__/route.test.ts`.
+- [x] Confirm and optimize the dashboard live feed query in `app/(auth)/dashboard/page.tsx`.
+- [x] Create transaction-safe cycle reset SQL RPC script.
+- [x] Refactor cycle reset button in `dashboard-actions.tsx` to invoke the `reset_distribution_cycle` RPC.
+- [x] Implement IndexedDB Session Expiry & Connection Throttling checks.
+- [x] Add Offline Collision Feedback toasts for skipped duplicates.
+- [x] Integrate Beneficiary Edit Verification confirmation modal with comparisons.
+- [x] Run unit tests and confirm production build compiles successfully.

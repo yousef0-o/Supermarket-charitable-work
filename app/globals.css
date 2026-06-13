@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@theme {
+  --color-brand-primary: #047857;
+  --color-brand-primary-dark: #065f46;
+  --color-background: #f8fafc;
+  --color-text-primary: #1e293b;
+  --color-text-secondary: #64748b;
+  --font-sans: var(--font-tajawal), sans-serif;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800;
+  font-family: var(--font-tajawal), sans-serif;
+}
