@@ -109,6 +109,13 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       setIsOnline(window.navigator.onLine);
       refreshPendingCount();
 
+      // Register Service Worker for PWA
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js")
+          .then((reg) => console.log("Service Worker registered with scope:", reg.scope))
+          .catch((err) => console.error("Service Worker registration failed:", err));
+      }
+
       const handleOnline = () => {
         setIsOnline(true);
         showToast("عادت التغطية. جار مزامنة العمليات المحفوظة محلياً...", "success");
