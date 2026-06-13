@@ -10,31 +10,24 @@ returns table (
   role text,
   created_at timestamp with time zone
 )
-language plpgsql
+language sql
 security definer
 set search_path = public, auth
 as $$
-begin
-  -- Check if caller is manager
-  if not exists (
-    select 1
-    from auth.users
-    where id = auth.uid()
-      and coalesce(raw_user_meta_data->>'role', 'manager') = 'manager'
-  ) then
-    raise exception 'Unauthorized: caller must be a manager';
-  end if;
-
-  return query
   select
     u.id,
     u.email,
-    coalesce(u.raw_user_meta_data->>'name', '') as name,
-    coalesce(u.raw_user_meta_data->>'role', 'manager') as role,
+    coalesce(u.raw_user_meta_data->>'name', '')::text as name,
+    coalesce(u.raw_user_meta_data->>'role', 'manager')::text as role,
     u.created_at
   from auth.users u
+  where exists (
+    select 1
+    from auth.users caller
+    where caller.id = auth.uid()
+      and coalesce(caller.raw_user_meta_data->>'role', 'manager') = 'manager'
+  )
   order by u.created_at desc;
-end;
 $$;
 
 -- 2. Function to delete a user safely
