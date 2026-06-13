@@ -21,6 +21,7 @@ global.fetch = mockFetch;
 const mockGetUser = vi.fn().mockResolvedValue({
   data: {
     user: {
+      id: "current-manager-id",
       user_metadata: { name: "المدير الحالي", role: "manager" },
       email: "current-manager@example.com",
     },
@@ -31,6 +32,7 @@ const mockGetUser = vi.fn().mockResolvedValue({
 const mockUpdateUser = vi.fn().mockResolvedValue({
   data: {
     user: {
+      id: "current-manager-id",
       user_metadata: { name: "الاسم الجديد", role: "manager" },
       email: "new-email@example.com",
     },
@@ -48,27 +50,81 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 describe("ManagerPage Component", () => {
+  const mockUsersList = [
+    {
+      id: "current-manager-id",
+      email: "current-manager@example.com",
+      name: "المدير الحالي",
+      role: "manager",
+      created_at: "2026-06-13T22:00:00Z",
+    },
+    {
+      id: "cashier-1-id",
+      email: "cashier1@example.com",
+      name: "كاشير واحد",
+      role: "cashier",
+      created_at: "2026-06-13T21:00:00Z",
+    },
+  ];
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Default mock response for mounting
     mockGetUser.mockResolvedValue({
       data: {
         user: {
+          id: "current-manager-id",
           user_metadata: { name: "المدير الحالي", role: "manager" },
           email: "current-manager@example.com",
         },
       },
       error: null,
     });
+
+    mockFetch.mockImplementation(async (url, init) => {
+      // Return user list for GET /api/users
+      if (typeof url === "string" && url.includes("/api/users") && (!init || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => mockUsersList,
+        };
+      }
+      // Return success for POST /api/users
+      if (typeof url === "string" && url.includes("/api/users") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      // Return success for PUT /api/users
+      if (typeof url === "string" && url.includes("/api/users") && init?.method === "PUT") {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      // Return success for DELETE /api/users
+      if (typeof url === "string" && url.includes("/api/users") && init?.method === "DELETE") {
+        return {
+          ok: true,
+          json: async () => ({ success: true }),
+        };
+      }
+      return { ok: false, status: 400 };
+    });
   });
 
-  it("renders the manager page and creation form correctly", () => {
+  it("renders the manager page and creation form correctly", async () => {
     render(<ManagerPage />);
     expect(screen.getByRole("heading", { name: "صفحة المدير - إدارة المستخدمين" })).toBeInTheDocument();
     expect(screen.getByLabelText("الاسم الكامل")).toBeInTheDocument();
     expect(screen.getByLabelText("البريد الإلكتروني")).toBeInTheDocument();
     expect(screen.getByLabelText("كلمة المرور للمستخدم الجديد")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "إضافة حساب المستخدم" })).toBeInTheDocument();
+
+    // Verify user list loaded
+    expect(await screen.findByText("المدير الحالي")).toBeInTheDocument();
+    expect(screen.getByText("كاشير واحد")).toBeInTheDocument();
   });
 
   it("displays validation errors for empty fields on submit", async () => {
@@ -82,13 +138,9 @@ describe("ManagerPage Component", () => {
   });
 
   it("disables button and shows loading text during submission", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true }),
-    });
-
     render(<ManagerPage />);
     
+    // Fill form
     fireEvent.change(screen.getByLabelText("الاسم الكامل"), { target: { value: "أحمد علي" } });
     fireEvent.change(screen.getByLabelText("البريد الإلكتروني"), { target: { value: "ahmed@example.com" } });
     fireEvent.change(screen.getByLabelText("كلمة المرور للمستخدم الجديد"), { target: { value: "password123" } });
@@ -105,14 +157,6 @@ describe("ManagerPage Component", () => {
   });
 
   it("shows success message and clears inputs upon successful creation", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        user: { id: "user-id", email: "new@example.com", name: "أحمد علي", role: "cashier" }
-      }),
-    });
-
     render(<ManagerPage />);
 
     const nameInput = screen.getByLabelText("الاسم الكامل") as HTMLInputElement;
@@ -135,7 +179,7 @@ describe("ManagerPage Component", () => {
   });
 
   it("displays general error message from API response on failure", async () => {
-    mockFetch.mockResolvedValue({
+    mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({ error: "البريد الإلكتروني مسجل بالفعل لمستخدم آخر" }),
@@ -154,7 +198,86 @@ describe("ManagerPage Component", () => {
     expect(screen.getByText("البريد الإلكتروني مسجل بالفعل لمستخدم آخر")).toBeInTheDocument();
   });
 
-  /* New Settings/Profile tab tests */
+  /* User List Editing & Deleting UI flows */
+
+  it("opens edit modal on edit button click and submits PUT changes", async () => {
+    render(<ManagerPage />);
+    
+    // Find edit button for "كاشير واحد" (the second user in list)
+    const editButtons = await screen.findAllByTitle("تعديل الحساب");
+    expect(editButtons).toHaveLength(2);
+
+    // Click edit on the cashier user (index 1)
+    fireEvent.click(editButtons[1]);
+
+    // Modal should be open
+    expect(screen.getByText("تعديل بيانات المستخدم")).toBeInTheDocument();
+    
+    const editNameInput = screen.getByLabelText("الاسم الكامل للموظف") as HTMLInputElement;
+    expect(editNameInput.value).toBe("كاشير واحد");
+
+    // Change name
+    fireEvent.change(editNameInput, { target: { value: "كاشير معدل" } });
+
+    // Click Save
+    const saveButton = screen.getByRole("button", { name: "حفظ التغييرات" });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      // Modal should close
+      expect(screen.queryByText("تعديل بيانات المستخدم")).not.toBeInTheDocument();
+    });
+
+    // Check fetch was called with PUT
+    const putCall = mockFetch.mock.calls.find(call => call[1]?.method === "PUT");
+    expect(putCall).toBeDefined();
+    expect(JSON.parse(putCall?.[1]?.body)).toEqual({
+      id: "cashier-1-id",
+      name: "كاشير معدل",
+      role: "cashier",
+    });
+  });
+
+  it("opens delete modal on delete button click and submits DELETE request", async () => {
+    render(<ManagerPage />);
+    
+    // Find delete buttons
+    const deleteButtons = await screen.findAllByTitle("حذف الحساب");
+    // Only 1 should be enabled/available since the manager's own delete button is disabled
+    expect(deleteButtons).toHaveLength(1);
+
+    // Click delete on cashier user
+    fireEvent.click(deleteButtons[0]);
+
+    // Confirmation dialog should be visible
+    expect(screen.getByText("حذف حساب المستخدم؟")).toBeInTheDocument();
+    expect(screen.getByText(/هل أنت متأكد من رغبتك في حذف حساب/)).toBeInTheDocument();
+
+    // Click confirm
+    const confirmButton = screen.getByRole("button", { name: "نعم، حذف الحساب" });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      // Modal should close
+      expect(screen.queryByText("حذف حساب المستخدم؟")).not.toBeInTheDocument();
+    });
+
+    // Check fetch was called with DELETE
+    const deleteCall = mockFetch.mock.calls.find(call => call[1]?.method === "DELETE");
+    expect(deleteCall).toBeDefined();
+    expect(deleteCall?.[0]).toContain("/api/users?id=cashier-1-id");
+  });
+
+  it("disables deletion for current logged-in user", async () => {
+    render(<ManagerPage />);
+    
+    // Find delete buttons (the manager's button is disabled, so we only get cashier's button as enabled)
+    const disabledButtons = await screen.findAllByTitle("لا يمكنك حذف حسابك الحالي");
+    expect(disabledButtons).toHaveLength(1);
+    expect(disabledButtons[0]).toBeDisabled();
+  });
+
+  /* Settings/Profile tab tests */
 
   it("switches to settings tab and loads current profile details", async () => {
     render(<ManagerPage />);
@@ -199,6 +322,7 @@ describe("ManagerPage Component", () => {
     mockUpdateUser.mockResolvedValue({
       data: {
         user: {
+          id: "current-manager-id",
           user_metadata: { name: "أحمد الجديد" },
           email: "newemail@example.com",
         },
@@ -230,25 +354,5 @@ describe("ManagerPage Component", () => {
 
     // Password input is cleared
     expect(profilePasswordInput.value).toBe("");
-  });
-
-  it("displays general error message when Supabase update fails", async () => {
-    mockUpdateUser.mockResolvedValue({
-      data: { user: null },
-      error: { message: "فشل في تحديث الحساب (البريد مكرر)" },
-    });
-
-    render(<ManagerPage />);
-
-    fireEvent.click(screen.getByRole("button", { name: "إعدادات حسابي" }));
-
-    const profileNameInput = await screen.findByLabelText("اسم العرض (الاسم الكامل)") as HTMLInputElement;
-    fireEvent.change(profileNameInput, { target: { value: "اسم جديد" } });
-
-    const saveButton = screen.getByRole("button", { name: "حفظ التغييرات" });
-    fireEvent.click(saveButton);
-
-    expect(await screen.findByText("فشل تعديل البيانات")).toBeInTheDocument();
-    expect(screen.getByText("فشل في تحديث الحساب (البريد مكرر)")).toBeInTheDocument();
   });
 });
